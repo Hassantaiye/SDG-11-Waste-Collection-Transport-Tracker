@@ -20,14 +20,38 @@ connectDB();
 
 const app = express();
 
-// Middleware
-// Allow only the frontend origin in production for security. Falls back to '*' if CLIENT_URL not set.
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  })
-);
+// Middleware - Improved CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, or server-to-server requests)
+    if (!origin) return callback(null, true);
+    
+    // List of allowed origins
+    const allowedOrigins = [
+      'https://sdg-11-collection-transport-tracker.vercel.app',
+      'https://waste-collection-transport-tracker.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:5173'
+    ];
+    
+    // Check if the origin is in the allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Allow all Vercel preview deployments
+    if (origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+    
+    // Block the request
+    callback(new Error('Not allowed by CORS'));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Routes
@@ -52,11 +76,27 @@ app.use((err, req, res, next) => {
 // Create HTTP server for Socket.io
 const server = http.createServer(app);
 
-// Initialize Socket.io
+// Initialize Socket.io with improved CORS
 export const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "*",
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        'https://sdg-11-collection-transport-tracker.vercel.app',
+        'https://waste-collection-transport-tracker.vercel.app',
+        'http://localhost:3000',
+        'http://localhost:5173'
+      ];
+      
+      if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true
   },
 });
 
